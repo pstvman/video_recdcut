@@ -2,66 +2,116 @@ import pyautogui
 import time
 from datetime import datetime, timedelta
 import logging
+from mylogger import setup_logging
+
+from Recoder import Recoder
+from FFmpeg import FFmpeg
 
 
-def setup_logging():
-    # 配置日志记录
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler("../log/test.log", encoding='utf-8'),  # 日志记录到文件
-            logging.StreamHandler()  # 日志记录到控制台
-        ]
-    )
+class Player:
+
+    def change_cut_time_format(self, total_seconds):
+        # 计算小时、分钟和剩余的秒数
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
+        milliseconds = int((total_seconds - int(total_seconds)) * 1000)
+
+        # 格式化输出为“时:分:秒.毫秒”的形式
+        formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+        # print(formatted_time)
+
+        return formatted_time
+    
+
+    def select_cloumn(self, dyc_y):
+        # 确定位置
+        yes_x, yes_y = 1450, 760
+
+        # 安全位置
+        safe_x, safe_y = 2035, 1420
+
+        # 第n个栏目
+        x, y = 2455, dyc_y
+        pyautogui.moveTo(x, y, duration=1)              # 移动到 (100, 200) 位置，持续时间为 1 秒
+        pyautogui.click()                               # 点击鼠标左键
+
+        pyautogui.moveTo(yes_x, yes_y, duration=1)      # 移动到确定位置
+        pyautogui.click()                               # 点击鼠标左键
+
+        pyautogui.moveTo(safe_x, safe_y, duration=0.5)  # 移动到安全位置
+        pyautogui.click()                               # 焦点离开当前界面
 
 
-def select_cloumn(dyc_y, time_long):
-    # 确定位置
-    yes_x, yes_y = 1450, 760
+    def main_record(self, eposide, counter_long, flag):
+        video_segments = []         # 返回各集时长分区 
+        counter = len(counter_long) # 集数控制器
+        interal_time = 10           # 每集间隔时间
+        video_speed = 1.5           # 视频加速
+        logging.info("第 %d 个专辑录制--->>>" % eposide)
 
-    # 安全位置
-    safe_x, safe_y = 2035, 1420
+        # 计算专辑总时长
+        ori_time = 0
+        for i in counter_long:
+            ori_time += i
+        sum_time = ori_time / video_speed
 
-    # 第n个栏目
-    x, y = 2455, dyc_y
-    pyautogui.moveTo(x, y, duration=1)  # 移动到 (100, 200) 位置，持续时间为 1 秒
-    pyautogui.click()   # 点击鼠标左键
+        # 计算发送通知的具体时间
+        post_time = datetime.now() + timedelta(seconds = sum_time + interal_time * counter)
+        logging.info("本次录制范围：全 {} 集。原时长 {:.2f} 分钟，加速后预计用时 {:.2f} 分钟！请于 {} 后领取大礼包！！".format(
+            counter, ori_time/60, round(sum_time/60, 2), post_time.strftime("%H:%M:%S")))
 
-    pyautogui.moveTo(yes_x, yes_y, duration=1)  # 移动到确定位置
-    pyautogui.click()   # 点击鼠标左键
+        # 视频列表
+        position = [135 + i * 20 for i in range(counter)]
 
-    pyautogui.moveTo(safe_x, safe_y, duration=0.5)  # 移动到安全位置
-    pyautogui.click()  # 焦点离开当前界面
+        for index, pos_column in enumerate(position):    # i 集数
+            logging.info("第 %d 集位置：%d" % (index+1, pos_column))
 
-    # 等待时长
-    time.sleep(time_long / 1.5 + 60)
-    # time.sleep(5) # 测试
+        delay_time = 5          # 首次录制延迟时间
+        real_time = 0           # 下一集位移时间
+        time.sleep(delay_time)  # 延迟5s启动
+        logging.info("启动中，请等待...\n")
+
+        # 开始录制（视频时长从这里开始计算）
+        logging.info("开始录制:")
+        for index, (d_y, t_long) in enumerate(zip(position, counter_long)):
+            # 开启本集录制
+            self.select_cloumn(d_y)
+            # 等待本集录制完成
+            if flag == "test":
+                time.sleep(5)       # 测试
+            elif flag == "prod":
+                time.sleep(t_long)  # s
+
+            # 计算每集的开始录制时间和结束录制时间，用于后期剪辑
+            cut_start_time = delay_time + real_time                 # 当前集剪辑开始时间，延迟便于测试
+            cut_end_time = cut_start_time + t_long / video_speed    # 当前集剪辑结束时间，1.5倍加速
+            delay_time = 0                                          # 非首集不再延迟，连续录制
+            real_time = cut_end_time + interal_time                 # 记录实时位置时间，视频间等待60s
+
+            # 转换为H:m:s格式
+            cut_start = self.change_cut_time_format(cut_start_time)
+            cut_end = self.change_cut_time_format(cut_end_time)
+            logging.info("当前位置y：%d, 原视频时长：%d mins, 加速后时长：%d mins, 建议剪辑区间：(\"%s\", \"%s\"),   # 第 %d 集" 
+                         % (d_y, t_long / 60, t_long / 60 / 1.5, cut_start, cut_end, index+1))
+            # 添加当前分区
+            video_segments.append((cut_start, cut_end))
+
+        logging.info("录制结束，感谢您的使用。\n\n\n")
+
+        # 返回所有分区
+        return video_segments
 
 
-def change_cut_time_format(total_seconds):
-    # 计算小时、分钟和剩余的秒数
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    seconds = int(total_seconds % 60)
-    milliseconds = int((total_seconds - int(total_seconds)) * 1000)
+if __name__ == "__main__":
+    player = Player()
+    setup_logging("../log/app.log")
 
-    # 格式化输出为“时:分:秒.毫秒”的形式
-    formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
-    # print(formatted_time)
-
-    return formatted_time
-
-
-# # 第5个栏目
-# x, y = 2455, 215
-
-def main():
-    setup_logging()
-
-    # 修改1：专辑名（天）
-    eposide = 15    
-    # 修改2：视频时长, 传递秒数
+    # 运行模式 test | prod
+    run_method = "prod"
+    # 专辑名(day)
+    epic = 2009
+    # 视频时长(s)
     counter_long = [
         60*51+31,   # 第1集 
         60*56+51,   # 第2集 
@@ -73,46 +123,50 @@ def main():
         # 60*35+44,   # 第8集       
         # 60*35+44,   # 第9集       
         # 60*57+ 1    # 第10集
-        ]   
-    logging.info("第 %d 个专辑录制--->>>" % eposide)
-    counter = len(counter_long)  # 集数控制器
+        ]
+    
+    logging.info("当前模式选择为：%s" % (run_method))
+    save_path = "E:\\7DC2-PUB\\"    # 保存位置
+    save_filename = str(epic) + "天第"
+    save_type = ".mp4"
 
-    o_time = 0
-    for i in counter_long:
-        o_time += i
-    s_time = o_time / 1.5
+    # 输入视频文件路径
+    input_video = save_path + save_filename + save_path
+    # 输出视频文件的基础路径
+    output_base_path = save_path + save_filename
 
-    now = datetime.now()
-    ending_time = now + timedelta(seconds=s_time+60*7)
-    logging.info("本次录制范围：全 {} 集。原时长 {:.2f} 分钟，加速后预计用时 {:.2f} 分钟！请 {} 后领取大礼包！！".format(counter, o_time/60, round(s_time/60, 2), ending_time.strftime("%H:%M:%S")))
+    if run_method not in ("test", "prod"):
+        logging.error("未支持的运行模式，请检查！")
+        exit -1
 
-    position = [135 + i * 20 for i in range(counter)]
-
-    for index, pos_column in enumerate(position):    # i 集数
-        logging.info("第 %d 集位置：%d" % (index+1, pos_column))
-
-    # 启动延时
-    delay_time = 0
-    real_time = 0
-    time.sleep(delay_time)
-    logging.info("启动中，请等待...\n")
-
+    # 录制前准备
+    qq = Recoder()
+    qq.run_recoder()
+    
     # 开始录制
-    logging.info("开始录制:")
-    for index, (d_y, t_long) in enumerate(zip(position, counter_long)):
-        
-        cut_start_time = delay_time + 3 + real_time     # 当前集剪辑开始时间,3s鼠标移动时间
-        cut_end_time = cut_start_time + t_long/1.5      # 当前集剪辑结束时间
-        real_time = cut_end_time + 60                   # 记录实时位置时间，视频间等待60s
-        cut_start = change_cut_time_format(cut_start_time)
-        cut_end = change_cut_time_format(cut_end_time)
-        # ("00:00:03", "00:32:02"),
-        logging.info("%s --- 当前位置y：%d, 原视频时长：%d mins, 加速后时长：%d mins, 建议剪辑区间：(\"%s\", \"%s\"),   # 第 %d 集" % (now.strftime("%H:%M:%S"), d_y, t_long / 60, t_long / 60 / 1.5, cut_start, cut_end, index+1))
-        # select_cloumn(d_y, t_long)
-    logging.info("录制结束，感谢您的使用。\n\n\n")
+    segments = player.main_record(epic, counter_long, run_method)
 
-if __name__ == "__main__":
-    main()
+    # 退出录制界面并保存文件
+    qq.ext_recoder(save_filename)
+
+    # 剪辑
+    cut = FFmpeg()
+    # segments = [
+    #     ("00:00:03.000", "00:34:23.666"),   # 第 1 集
+    #     ("00:35:26.666", "01:13:20.666"),   # 第 2 集
+    #     ("01:14:23.666", "01:41:22.333"),   # 第 3 集
+    #     ("01:42:25.333", "02:19:37.333"),   # 第 4 集
+    #     ("02:20:40.333", "02:47:55.666"),   # 第 5 集
+    #     ("02:48:58.666", "03:23:51.333"),   # 第 6 集
+    #     ("03:24:54.333", "03:53:44.333"),   # 第 7 集
+    #     # 添加更多片段的时间范围
+    # ]
+
+    # input_video = "E:\\7DC2-PUB\\15天第.mp4"
+    cut.split_video(segments, input_video, output_base_path, save_type)
+
+
+
 
 
 
