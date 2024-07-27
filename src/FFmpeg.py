@@ -32,6 +32,8 @@ class FFmpeg:
             
             # 调用函数进行视频分割
             self.split_video_ffmpeg(input_video, start_time, end_time, output_video)
+        
+        logging.info("视频分割任务全部完成，再次感谢您的使用。\n\n\n")
 
 
 if __name__ == "__main__":
