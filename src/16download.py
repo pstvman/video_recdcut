@@ -1,3 +1,4 @@
+import sys
 import pyautogui
 import time
 from datetime import datetime, timedelta
@@ -48,18 +49,22 @@ class Player:
         counter = len(counter_long) # 集数控制器
         interal_time = 10           # 每集间隔时间
         video_speed = 1.5           # 视频加速
+
+        time1 = time.time()
         logging.info("第 %d 个专辑录制--->>>" % eposide)
 
         # 计算专辑总时长
         ori_time = 0
-        for i in counter_long:
-            ori_time += i
+        for index, cur_time in enumerate(counter_long):
+            if index not in record_list:
+                continue
+            ori_time += cur_time
         sum_time = ori_time / video_speed
 
         # 计算发送通知的具体时间
         post_time = datetime.now() + timedelta(seconds = sum_time + interal_time * counter)
         logging.info("本次录制范围：全 {} 集。原时长 {:.2f} 分钟，加速后预计用时 {:.2f} 分钟！请于 {} 后领取大礼包！！".format(
-            counter, ori_time/60, round(sum_time/60, 2), post_time.strftime("%H:%M:%S")))
+            len(record_list), ori_time/60, round(sum_time/60, 2), post_time.strftime("%H:%M:%S")))
 
         # 视频列表
         position = [135 + i * 20 for i in range(counter)]
@@ -67,20 +72,32 @@ class Player:
         for index, pos_column in enumerate(position):    # i 集数
             logging.info("第 %d 集位置：%d" % (index+1, pos_column))
 
-        delay_time = 5          # 首次录制延迟时间
-        real_time = 0           # 下一集位移时间
-        time.sleep(delay_time)  # 延迟5s启动
+        init_time = 0           # 首次录制延迟时间
+        real_time = 0           # 下一集起始时间
+        move_time = 0
+        # time.sleep(init_time)  # 延迟5s启动
         logging.info("启动中，请等待...\n")
+        init_time = time.time() - time1
+        logging.info("init_time: %.2f s" % (init_time))
 
         # 开始录制（视频时长从这里开始计算）
         for index, (d_y, t_long) in enumerate(zip(position, counter_long)):
             if index not in record_list:
                 continue
+            
+            move_start_time = time.time()
+            # 开启录制
+            self.select_cloumn(d_y)
+            move_end_time = time.time()     # 录制开始时间
+            move_time = move_end_time - move_start_time
+            logging.info("move_time: %.2f s" % (move_time))
+
             # 计算每集的开始录制时间和结束录制时间，用于后期剪辑
-            cut_start_time = delay_time + real_time                 # 当前集剪辑开始时间，延迟便于测试
+            # 每集start_time必须通过实时计算得来
+            cut_start_time = init_time + real_time + move_time      # 当前集剪辑开始时间，延迟便于测试+2s移动时间
             cut_end_time = cut_start_time + t_long / video_speed    # 当前集剪辑结束时间，1.5倍加速
-            delay_time = 0                                          # 非首集不再延迟，连续录制
-            real_time = cut_end_time + 2 + interal_time             # 记录实时位置时间，上次结束时间+移动时间+间隔时间
+            init_time = 0                                           # 非首集不再延迟，连续录制
+            # real_time = cut_end_time + interal_time                 # 记录实时位置时间，上次结束时间+间隔时间
 
             # 转换为H:m:s格式
             cut_start = self.change_cut_time_format(cut_start_time)
@@ -89,17 +106,19 @@ class Player:
                          % (d_y, t_long / 60, t_long / 60 / 1.5, cut_start, cut_end, index+1))
             # 添加当前分区
             video_segments.append((cut_start, cut_end))
+            logging.info("分区列表：\n%s" % (video_segments))
 
-            # 开启录制 耗时2s
-            self.select_cloumn(d_y)
             logging.info("第 %d 集，开始录制..." % (index+1))
             # 等待本集录制完成
             if flag == "test":
                 time.sleep(3)       # 测试
             elif flag == "prod":
                 time.sleep(t_long / video_speed)  # 加速后时长(s)
-            logging.info("第 %d 集，录制完成..." % (index+1))
+            
             time.sleep(interal_time)
+            time2 = time.time()
+            real_time += time2 - move_end_time
+            logging.info("第 %d 集，录制完成..." % (index+1))
 
         logging.info("所有内容已录制结束，感谢您的使用。\n")
 
@@ -109,79 +128,75 @@ class Player:
 
 if __name__ == "__main__":
     player = Player()
-    setup_logging("../log/app.log")
+    
+    if len(sys.argv)  < 3:
+        print("eg: python 16download.py [test|prod] [epic_num], 参数错误")
+        sys.exit(0)
+    else:
+        run_method, epic = sys.argv[1:3]
+        if run_method not in ("test", "prod") or not epic.isdigit():
+            print("eg: python 16download.py [test|prod] [epic_num], 参数错误，请检查！")
+            sys.exit()
+        elif run_method == "test":
+            setup_logging("../log/test.log")
+        elif run_method == "pord":
+                setup_logging("../log/app.log")
 
-    # 运行模式 test | prod
-    run_method = "prod"
-    # 专辑名(day)
-    epic = 11
+    # # 运行模式 test | prod
+    # run_method = "test"
+    # # 专辑名(day)
+    # epic = 2002
     # 视频时长(s)
     counter_long = [
-        60 * 48 + 46,   # 第1集 
-        60 * 63 + 17,   # 第2集 
-        60 * 47 + 52,   # 第3集 
-        60 * 56 + 14,   # 第4集 
-        60 * 43 +  9,   # 第5集 
-        60 * 35 + 38,   # 第6集       
-        60 * 34 +  6,   # 第7集       
-        60 * 38 + 49,   # 第8集       
-        # 60 * 35 + 44,   # 第9集       
-        # 60 * 57 +  1,   # 第10集
+        60 * 47 + 49,   # 第1集 
+        60 * 71 + 26,   # 第2集 
+        60 * 44 + 17,   # 第3集 
+        60 * 57 + 42,   # 第4集 
+        60 * 42 + 38,   # 第5集 
+        60 * 58 + 36,   # 第6集       
+        60 * 66 + 46,   # 第7集       
+        # 60 * 71 + 18,   # 第8集       
+        # 60 * 63 + 23,   # 第9集       
+        # 60 * 58 +  5,   # 第10集
         ]
     # 指定需要录制的集数
     record_list = [
-        # 0, 
-        # 1, 
-        # 2, 
-        # 3, 
-        # 4, 
+        0, 
+        1, 
+        2, 
+        3, 
+        4, 
         5, 
         6,
-        7,
+        # 7,
+        # 8,
+        # 9,
         ]
     
     logging.info("当前模式选择为：%s" % (run_method))
     save_path = "E:\\7DC2-PUB\\"    # 保存位置
-    save_filename = str(epic) + "天第后3集"
+    save_filename = str(epic) + "天第"
     save_type = ".mp4"
 
     # 输入视频文件路径
-    input_video = save_path + save_filename + save_path
+    input_video = save_path + save_filename + save_type
     # 输出视频文件的基础路径
     output_base_path = save_path + save_filename
 
-    if run_method not in ("test", "prod"):
-        logging.error("未支持的运行模式，请检查！")
-        exit -1
 
-    # 录制前准备
+    # 1. 录制前准备
     qq = Recoder()
     qq.run_recoder()
     
-    # 开始录制
-    segments = player.main_record(epic, counter_long, run_method)
+    # 2. 开始录制
+    segments = player.main_record(int(epic), counter_long, run_method, record_list)
 
-    # 退出录制界面并保存文件
+    # 3. 退出录制界面并保存文件
     qq.ext_recoder(save_filename)
 
-    # 剪辑
+    # 4. 剪辑
     cut = FFmpeg()
-    # segments = [
-    #     ("00:00:03.000", "00:34:23.666"),   # 第 1 集
-    #     ("00:35:26.666", "01:13:20.666"),   # 第 2 集
-    #     ("01:14:23.666", "01:41:22.333"),   # 第 3 集
-    #     ("01:42:25.333", "02:19:37.333"),   # 第 4 集
-    #     ("02:20:40.333", "02:47:55.666"),   # 第 5 集
-    #     ("02:48:58.666", "03:23:51.333"),   # 第 6 集
-    #     ("03:24:54.333", "03:53:44.333"),   # 第 7 集
-    #     # 添加更多片段的时间范围
-    # ]
-
-    # input_video = "E:\\7DC2-PUB\\15天第.mp4"
     cut.split_video(segments, input_video, output_base_path, save_type)
-
-
-
 
 
 

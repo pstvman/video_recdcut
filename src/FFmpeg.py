@@ -19,7 +19,15 @@ class FFmpeg:
             ffmpeg.input(input_video, ss=start_time, to=end_time).output(output_video, c='copy').run()
             logging.info(f"视频已成功分割并保存到 {output_video}")
         except ffmpeg.Error as e:
-            logging.error(f"分割视频时出错: {e.stderr.decode()}")
+            logging.error(f"分割视频时出错: {str(e)}")
+            try:
+                logging.error(f"解码出错: {e.stderr.decode()}")
+            except AttributeError:
+                logging.error(f"无法解码：e.stderr 为 None")
+        except AttributeError as e:
+            logging.error(f"AttributeError: {str(e)}")
+        except Exception as ex:
+            logging.error(f"其他错误：{str(ex)}")
 
 
 
@@ -41,19 +49,19 @@ if __name__ == "__main__":
     logging.info(" == FFmpeg单元测试-->")
     # 定义片段的起始时间和结束时间列表（格式为 hh:mm:ss）
     segments = [
-            ("00:00:03.000", "00:34:23.666"),   # 第 1 集
-            ("00:35:26.666", "01:13:20.666"),   # 第 2 集
-            ("01:14:23.666", "01:41:22.333"),   # 第 3 集
-            ("01:42:25.333", "02:19:37.333"),   # 第 4 集
-            ("02:20:40.333", "02:47:55.666"),   # 第 5 集
-            ("02:48:58.666", "03:23:51.333"),   # 第 6 集
-            ("03:24:54.333", "03:53:44.333"),   # 第 7 集
+            ("00:00:05.000", "00:41:03.666"),   # 第 1 集
+            ("00:41:15.666", "01:11:06.333"),   # 第 2 集
+            ("01:11:18.333", "01:48:03.000"),   # 第 3 集
+            ("01:48:15.000", "02:25:19.000"),   # 第 4 集
+            ("02:25:31.000", "02:59:59.000"),   # 第 5 集
+            ("03:00:11.000", "03:29:25.000"),   # 第 6 集
+            ("03:29:37.000", "04:07:33.000"),   # 第 7 集
             # 添加更多片段的时间范围
         ]
     # 输入视频文件路径
-    input_video = "E:\\7DC2-PUB\\15天第.mp4"
+    input_video = "E:\\7DC2-PUB\\9天第.mp4"
     # 定义输出视频文件的基础路径和扩展名
-    output_base_path = "E:\\7DC2-PUB\\15天第"
+    output_base_path = "E:\\7DC2-PUB\\9天第"
     output_extension = ".mp4"
     
     ff = FFmpeg()
