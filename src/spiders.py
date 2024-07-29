@@ -3,6 +3,7 @@ import pyautogui
 import time
 from datetime import datetime, timedelta
 import logging
+import settings
 from mylogger import setup_logging
 
 from Recoder import Recoder
@@ -117,7 +118,7 @@ class Player:
             
             time.sleep(interal_time)
             time2 = time.time()
-            real_time += time2 - move_end_time
+            real_time += time2 - move_start_time
             logging.info("第 %d 集，录制完成..." % (index+1))
 
         logging.info("所有内容已录制结束，感谢您的使用。\n")
@@ -128,55 +129,24 @@ class Player:
 
 if __name__ == "__main__":
     player = Player()
-    
     if len(sys.argv)  < 3:
-        print("eg: python 16download.py [test|prod] [epic_num], 参数错误")
+        print("eg: python spiders.py [test|prod] [epic_num], 参数错误")
         sys.exit(0)
     else:
         run_method, epic = sys.argv[1:3]
         if run_method not in ("test", "prod") or not epic.isdigit():
-            print("eg: python 16download.py [test|prod] [epic_num], 参数错误，请检查！")
+            print("eg: python spiders.py [test|prod] [epic_num], 参数错误，请检查！")
             sys.exit()
-        elif run_method == "test":
-            setup_logging("../log/test.log")
-        elif run_method == "pord":
-                setup_logging("../log/app.log")
 
-    # # 运行模式 test | prod
-    # run_method = "test"
-    # # 专辑名(day)
-    # epic = 2002
-    # 视频时长(s)
-    counter_long = [
-        60 * 47 + 49,   # 第1集 
-        60 * 71 + 26,   # 第2集 
-        60 * 44 + 17,   # 第3集 
-        60 * 57 + 42,   # 第4集 
-        60 * 42 + 38,   # 第5集 
-        60 * 58 + 36,   # 第6集       
-        60 * 66 + 46,   # 第7集       
-        # 60 * 71 + 18,   # 第8集       
-        # 60 * 63 + 23,   # 第9集       
-        # 60 * 58 +  5,   # 第10集
-        ]
-    # 指定需要录制的集数
-    record_list = [
-        0, 
-        1, 
-        2, 
-        3, 
-        4, 
-        5, 
-        6,
-        # 7,
-        # 8,
-        # 9,
-        ]
+        if run_method == "test":
+            setup_logging("../log/test.log")
+        elif run_method == "prod":
+            setup_logging("../log/app.log")
+        logging.info("当前模式选择为：%s" % (run_method))
     
-    logging.info("当前模式选择为：%s" % (run_method))
-    save_path = "E:\\7DC2-PUB\\"    # 保存位置
-    save_filename = str(epic) + "天第"
-    save_type = ".mp4"
+    save_path = settings.save_path
+    save_filename = str(epic) + settings.save_filename
+    save_type = settings.save_type
 
     # 输入视频文件路径
     input_video = save_path + save_filename + save_type
@@ -189,7 +159,7 @@ if __name__ == "__main__":
     qq.run_recoder()
     
     # 2. 开始录制
-    segments = player.main_record(int(epic), counter_long, run_method, record_list)
+    segments = player.main_record(int(epic), settings.counter_long, run_method, settings.record_list)
 
     # 3. 退出录制界面并保存文件
     qq.ext_recoder(save_filename)

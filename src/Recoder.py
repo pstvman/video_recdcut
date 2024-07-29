@@ -69,6 +69,7 @@ class Recoder:
         pyautogui.moveTo(save_as_position, duration=0.5)
         pyautogui.click()
         logging.info("录屏界面点击 “另存为”")
+        time.sleep(1)
 
         # 修改视频名称
         # pyautogui.write(epic_name)
