@@ -38,7 +38,7 @@ class Player:
         pyautogui.moveTo(x, y, duration=1)              # 移动到 (100, 200) 位置，持续时间为 1 秒
         pyautogui.click()                               # 点击鼠标左键
 
-        pyautogui.moveTo(yes_x, yes_y, duration=0.5)    # 移动到确定位置
+        pyautogui.moveTo(yes_x, yes_y, duration=1)    # 移动到确定位置
         pyautogui.click()                               # 点击鼠标左键
 
         pyautogui.moveTo(safe_x, safe_y, duration=0.5)  # 移动到安全位置
@@ -53,6 +53,8 @@ class Player:
 
         time1 = time.time()
         logging.info("第 %d 个专辑录制--->>>" % eposide)
+        logging.info("各集时长：%s" % counter_long)
+        logging.info("待录制集：%s" % record_list)
 
         # 计算专辑总时长
         ori_time = 0
@@ -97,7 +99,7 @@ class Player:
             # 每集start_time必须通过实时计算得来
             cut_start_time = init_time + real_time + move_time      # 当前集剪辑开始时间，延迟便于测试+2s移动时间
             cut_end_time = cut_start_time + t_long / video_speed    # 当前集剪辑结束时间，1.5倍加速
-            init_time = 0                                           # 非首集不再延迟，连续录制
+            # init_time = 0                                           # 非首集不再延迟，连续录制
             # real_time = cut_end_time + interal_time                 # 记录实时位置时间，上次结束时间+间隔时间
 
             # 转换为H:m:s格式
@@ -145,7 +147,7 @@ if __name__ == "__main__":
         logging.info("当前模式选择为：%s" % (run_method))
     
     save_path = settings.save_path
-    save_filename = str(epic) + settings.save_filename
+    save_filename = str(epic) + settings.save_filename_part
     save_type = settings.save_type
 
     # 输入视频文件路径
