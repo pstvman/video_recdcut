@@ -1,2 +1,6 @@
 pyautogui
 ffmpeg-python
+ffmpeg-python
+moviepy
+imageio-ffmpeg
+pydotenv
